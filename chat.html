@@ -1,43 +1,369 @@
 <!DOCTYPE html>
 <html lang="fa">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>پیام‌رسان P2P حرفه‌ای</title>
-<link rel="stylesheet" href="chat.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>پیام‌رسان P2P — نسخهٔ تک‌فایل اصلاح‌شده</title>
+<style>
+/* ===== سبک‌ها (CSS) ===== */
+*{box-sizing:border-box;margin:0;padding:0;font-family:Arial, sans-serif}
+body{background:#0b0b0b;color:#eee;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.container{width:420px;background:#111;border-radius:12px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+h2{font-size:18px;margin-bottom:12px;color:#fff}
+label{display:block;font-size:12px;color:#bfbfbf;margin-top:8px}
+input[type="text"], input[type="password"]{width:100%;padding:10px;border-radius:8px;border:1px solid #222;background:#0f0f0f;color:#fff;margin-top:6px}
+button{width:100%;padding:10px;border-radius:8px;border:0;background:#2563eb;color:#fff;cursor:pointer;margin-top:10px}
+button.secondary{background:#111;border:1px solid #333;color:#ddd}
+.row{display:flex;gap:8px}
+.small{width:50%}
+.chat-box{display:none;flex-direction:column;margin-top:12px}
+.messages{height:260px;overflow:auto;background:#0f0f0f;padding:10px;border-radius:8px;margin-top:10px}
+.message{padding:8px;border-radius:6px;margin-bottom:8px;max-width:80%;word-break:break-word}
+.message.me{align-self:flex-end;background:#2563eb;color:#fff}
+.message.them{align-self:flex-start;background:#333;color:#fff}
+.input-row{display:flex;gap:8px;margin-top:8px}
+.input-row input{flex:1;padding:10px;border-radius:8px;border:1px solid #222;background:#0b0b0b;color:#fff}
+.input-row button{width:110px}
+.debug{margin-top:10px;padding:8px;background:#050505;border-radius:6px;color:#6ef06e;font-size:12px;max-height:100px;overflow:auto}
+.info{font-size:13px;color:#cfcfcf;margin-top:8px}
+.footer-note{font-size:12px;color:#8b8b8b;margin-top:6px}
+</style>
 </head>
 <body>
-<div class="chat-container">
+<div class="container" role="main">
+    <h2>پیام‌رسان P2P — نسخهٔ اصلاح‌شده</h2>
 
-    <div class="setup-container">
-        <h2>شروع پیام‌رسان P2P</h2>
-        <label for="name">نام شما:</label>
-        <input type="text" id="name" placeholder="مثلاً: علی">
+    <label for="name">نام شما</label>
+    <input id="name" type="text" placeholder="مثلاً: علی">
 
-        <label for="pass">گذرواژه مشترک:</label>
-        <input type="password" id="pass" placeholder="یک گذرواژه قوی وارد کنید">
+    <label for="pass">گذرواژه مشترک (رمزنگاری)</label>
+    <input id="pass" type="password" placeholder="یک گذرواژه قوی وارد کنید">
 
-        <label for="friendId">Peer ID دوست (روش مستقیم):</label>
-        <input type="text" id="friendId" placeholder="مثلاً: abc123">
+    <label for="friendId">Peer ID دوست (یا خالی برای انتظار)</label>
+    <input id="friendId" type="text" placeholder="مثلاً: abc123">
 
-        <button id="startBtn">شروع و وصل خودکار</button>
-        <button id="copyLinkBtn">کپی لینک اتصال</button>
-
-        <p>Peer ID شما: <span id="myId">---</span></p>
-        <p>وضعیت اتصال: <span id="status">قطع</span></p>
+    <div class="row">
+        <button id="startBtn">شروع / آماده شدن</button>
+        <button id="copyLinkBtn" class="secondary">کپی لینک اتصال</button>
     </div>
 
-    <div class="chat-box" style="display: none;">
-        <div class="messages-container" id="messages"></div>
-        <div class="input-container">
-            <input type="text" id="textMsg" placeholder="پیام..." onkeydown="if(event.key==='Enter'){sendMsg()}">
+    <p class="info">Peer ID شما: <strong id="myId">---</strong></p>
+    <p class="info">وضعیت اتصال: <strong id="status">قطع</strong></p>
+
+    <div class="chat-box" id="chatBox">
+        <div class="messages" id="messages"></div>
+
+        <div class="input-row">
+            <input id="textMsg" type="text" placeholder="پیام... (Enter برای ارسال)" />
             <button id="sendBtn">ارسال</button>
         </div>
-        <div class="debug-panel" id="debugPanel"></div>
     </div>
+
+    <div class="debug" id="debugPanel" aria-live="polite"></div>
+
+    <p class="footer-note">تست: از دو مرورگر یا دو دستگاه جدا استفاده کنید. هر دو باید همان گذرواژه را داشته باشند.</p>
 </div>
 
+<!-- PeerJS CDN -->
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.4.7/dist/peerjs.min.js"></script>
-<script src="chat.js"></script>
+
+<script>
+/* ======= JavaScript کامل و اصلاح‌شده ======= */
+'use strict';
+
+/* --- المان‌ها --- */
+const nameEl = document.getElementById('name');
+const passEl = document.getElementById('pass');
+const friendEl = document.getElementById('friendId');
+const startBtn = document.getElementById('startBtn');
+const copyLinkBtn = document.getElementById('copyLinkBtn');
+const myIdEl = document.getElementById('myId');
+const statusEl = document.getElementById('status');
+const messagesEl = document.getElementById('messages');
+const debugPanel = document.getElementById('debugPanel');
+const chatBox = document.getElementById('chatBox');
+const textMsg = document.getElementById('textMsg');
+const sendBtn = document.getElementById('sendBtn');
+
+let peer = null;
+let conn = null;
+let myCryptoKey = null;
+
+/* --- ابزارهای نمایش و لاگ --- */
+function logDebug(msg){
+    const p = document.createElement('div');
+    p.textContent = (new Date()).toLocaleTimeString() + ' — ' + msg;
+    debugPanel.appendChild(p);
+    debugPanel.scrollTop = debugPanel.scrollHeight;
+}
+function setStatus(text){
+    statusEl.textContent = text;
+}
+
+/* --- تبدیل‌های باینری <-> base64 مطمئن برای طول بالا --- */
+function bufToB64(buf){
+    const bytes = new Uint8Array(buf);
+    const chunkSize = 0x8000;
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
+    }
+    return btoa(binary);
+}
+function b64ToBuf(b64){
+    const binary = atob(b64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+}
+function strToBuf(s){ return new TextEncoder().encode(s); }
+function bufToStr(buf){ return new TextDecoder().decode(buf); }
+
+/* --- رمزنگاری (AES-GCM از پسورد) --- */
+async function deriveKey(pass){
+    // ثابت بودن salt باعث همخوانی کلاینت‌ها روی همان پسورد
+    const salt = strToBuf('p2p-chat-salt-v1');
+    const base = await crypto.subtle.importKey('raw', strToBuf(pass), {name:'PBKDF2'}, false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+        {name:'PBKDF2', salt, iterations: 200000, hash: 'SHA-256'},
+        base,
+        {name:'AES-GCM', length:256},
+        false,
+        ['encrypt','decrypt']
+    );
+}
+async function encryptMessage(key, text){
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, strToBuf(text));
+    return {iv: bufToB64(iv.buffer), data: bufToB64(ct)};
+}
+async function decryptMessage(key, iv_b64, data_b64){
+    const ivBuf = b64ToBuf(iv_b64);
+    const ctBuf = b64ToBuf(data_b64);
+    const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv: new Uint8Array(ivBuf)}, key, ctBuf);
+    return bufToStr(plain);
+}
+
+/* --- نمایش پیام در UI --- */
+function appendMsg(text, kind = 'them'){
+    const d = document.createElement('div');
+    d.className = 'message ' + (kind === 'me' ? 'me' : 'them');
+    d.textContent = text;
+    messagesEl.appendChild(d);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+/* --- ذخیره و بارگذاری محلی --- */
+function saveData(){
+    localStorage.setItem('p2p_name', nameEl.value || '');
+    localStorage.setItem('p2p_friend', friendEl.value || '');
+}
+function loadData(){
+    nameEl.value = localStorage.getItem('p2p_name') || '';
+    friendEl.value = localStorage.getItem('p2p_friend') || '';
+}
+
+/* --- انتخاب اتصال دریافتی اگر از قبل متصل هستیم --- */
+function handleIncomingConnection(incoming){
+    // اگر قبلاً به همان peer متصلیم؛ اتصال جدید را ببند
+    if (conn && conn.open && conn.peer === incoming.peer) {
+        logDebug('اتصال با همین peer قبلاً برقرار شده — بستن اتصال جدید');
+        try { incoming.close(); } catch(e){}
+        return;
+    }
+    // در غیر این صورت، جایگزین کن (مرتب و مشخص)
+    conn = incoming;
+    setupConnectionHandlers();
+}
+
+/* --- آماده‌سازی هندلرها برای اتصال فعلی (conn) --- */
+function setupConnectionHandlers(){
+    if(!conn) return;
+    setStatus('در حال برقراری...');
+
+    conn.on('open', () => {
+        setStatus('متصل');
+        chatBox.style.display = 'flex';
+        saveData();
+        appendMsg('دوست متصل شد!', 'them');
+        logDebug('اتصال باز شد با: ' + conn.peer);
+    });
+
+    conn.on('data', async data => {
+        // انتظار: { iv, data } یا پیام‌های کنترلی JSON
+        try {
+            if (data && data.type === 'meta' && data.text) {
+                // پیام متا (مثلاً ارسال نام)
+                appendMsg('[متا] ' + data.text, 'them');
+                return;
+            }
+            // پیام رمزنگاری‌شده
+            const plain = await decryptMessage(myCryptoKey, data.iv, data.data);
+            appendMsg(plain, 'them');
+            logDebug('دریافت پیام: ' + plain);
+        } catch (e) {
+            appendMsg('[خطا در رمزگشایی]', 'them');
+            logDebug('خطا در رمزگشایی پیام: ' + (e && e.message ? e.message : e));
+        }
+    });
+
+    conn.on('close', () => {
+        setStatus('قطع');
+        logDebug('اتصال بسته شد: ' + (conn && conn.peer));
+        conn = null;
+        // نمایش UI مناسب
+        // chatBox.style.display = 'none'; // نگه دارید تا کاربر پیغام‌ها را ببیند
+    });
+
+    conn.on('error', err => {
+        logDebug('خطای اتصال: ' + err);
+    });
+}
+
+/* --- اتصال به remote --- */
+function connectToPeer(remoteId){
+    if (!peer) { logDebug('خطا: Peer آماده نیست. ابتدا دکمه شروع را بزنید.'); return; }
+    if (!remoteId) { logDebug('آیدی دوست خالی است.'); return; }
+
+    // اگر قبلاً به همان peer متصلیم، کاری نکن
+    if (conn && conn.open && conn.peer === remoteId) {
+        logDebug('قبلاً به این Peer متصل هستید: ' + remoteId);
+        return;
+    }
+
+    logDebug('در حال اتصال به ' + remoteId + ' ...');
+    const c = peer.connect(remoteId, { reliable: true, serialization: 'json' });
+
+    // اگر اتصال با موفقیت باز شد، مقدار conn را تنظیم می‌کنیم در setupConnectionHandlers
+    c.on('open', () => {
+        conn = c;
+        setupConnectionHandlers();
+        // ارسال یک پیام متا شامل نام
+        try { conn.send({type:'meta', text: (nameEl.value || 'ناشناس') + ' متصل شد'}); } catch(e){}
+    });
+
+    c.on('error', err => logDebug('خطا هنگام اتصال به دوست: ' + err));
+}
+
+/* --- شروع Peer و تنظیمات --- */
+async function start(){
+    loadData();
+
+    const pass = (passEl.value || '').trim();
+    if (!pass) { alert('لطفاً یک گذرواژه وارد کنید (هر دو طرف باید یکسان باشد).'); return; }
+
+    try {
+        myCryptoKey = await deriveKey(pass);
+        logDebug('کلید رمزنگاری ایجاد شد');
+    } catch (e) {
+        logDebug('خطا در ایجاد کلید: ' + e);
+        return;
+    }
+
+    setStatus('در حال راه‌اندازی Peer...');
+
+    // استفاده از تنظیمات ICE (STUN/TURN) برای افزایش موفقیت اتصال
+    peer = new Peer({
+        debug: 2,
+        // برای PeerJS v1.4.7 گزینهٔ config مشابه WebRTC RTCPeerConnection config است
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun.cloudflare.com:3478' },
+                // یک TURN عمومی (Metered) — برای مواقعی که STUN ناکافی است
+                { urls: 'turn:global.relay.metered.ca:80', username: 'peerjs', credential: 'peerjspassword' }
+            ]
+        }
+    });
+
+    peer.on('open', id => {
+        myIdEl.textContent = id;
+        setStatus('آماده (قطع)');
+        logDebug('Peer باز شد: ' + id);
+
+        const friendId = (friendEl.value || '').trim();
+        if (friendId) {
+            // اگر آیدی دوست وجود دارد، تلاش برای اتصال
+            connectToPeer(friendId);
+        }
+    });
+
+    peer.on('connection', c => {
+        logDebug('اتصال دریافتی از: ' + c.peer);
+        // هندل کردن اتصال ورودی
+        handleIncomingConnection(c);
+    });
+
+    peer.on('disconnected', () => {
+        setStatus('قطع (disconnected)');
+        logDebug('Peer disconnected');
+    });
+
+    peer.on('close', () => {
+        setStatus('بسته');
+        logDebug('Peer closed');
+    });
+
+    peer.on('error', err => {
+        logDebug('خطای PeerJS: ' + (err && err.message ? err.message : err));
+    });
+}
+
+/* --- ارسال پیام --- */
+async function sendMsg(){
+    const txt = (textMsg.value || '').trim();
+    if (!txt) return;
+    if (!conn || !conn.open) { logDebug('هیچ ارتباط فعالی وجود ندارد'); return; }
+    try {
+        const payload = await encryptMessage(myCryptoKey, txt);
+        conn.send(payload);
+        appendMsg(txt, 'me');
+        textMsg.value = '';
+        logDebug('پیام ارسال شد');
+    } catch (e) {
+        logDebug('خطا در ارسال پیام: ' + e);
+    }
+}
+
+/* --- لینک اتصال (برای ارسال به دوست) --- */
+copyLinkBtn.addEventListener('click', ()=>{
+    const id = myIdEl.textContent;
+    const pass = passEl.value || '';
+    if (!id || id === '---') { logDebug('ابتدا Peer باز شود سپس لینک بگیرید'); return; }
+    const url = new URL(location.href);
+    url.searchParams.set('peer', id);
+    url.searchParams.set('pass', pass);
+    navigator.clipboard.writeText(url.toString()).then(()=>{
+        logDebug('لینک اتصال کپی شد: ' + url.toString());
+    }).catch(e => logDebug('خطا در کپی لینک: ' + e));
+});
+
+/* --- رویدادها --- */
+startBtn.addEventListener('click', start);
+sendBtn.addEventListener('click', sendMsg);
+textMsg.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') sendMsg(); });
+
+window.addEventListener('load', ()=>{
+    loadData();
+    // بررسی پارامترهای URL برای اتصال خودکار
+    const params = new URLSearchParams(window.location.search);
+    const peerId = params.get('peer');
+    const pass = params.get('pass');
+    if (peerId || pass) {
+        if (peerId) friendEl.value = peerId;
+        if (pass) passEl.value = pass;
+        logDebug('لینک اتصال در URL شناسایی شد — اجرای start...');
+        // اجرا کن (توجه: start خودش loadData را صدا می‌زند)
+        start();
+    }
+});
+
+/* --- قبل از بستن صفحه، پاک‌سازی ملایم --- */
+window.addEventListener('beforeunload', ()=>{
+    try { if(conn) conn.close(); } catch(e){}
+    try { if(peer) peer.destroy(); } catch(e){}
+});
+</script>
 </body>
 </html>

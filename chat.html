@@ -1,33 +1,43 @@
 <!DOCTYPE html>
 <html lang="fa">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>پیام‌رسان P2P امن</title>
-    <link rel="stylesheet" href="chat.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>پیام‌رسان P2P حرفه‌ای</title>
+<link rel="stylesheet" href="chat.css">
 </head>
 <body>
-    <div class="chat-container">
-        <div class="setup-container">
-            <label for="name">نام خود را وارد کنید:</label>
-            <input type="text" id="name" placeholder="مثلاً: علی" required>
+<div class="chat-container">
 
-            <label for="pass">گذرواژه مشترک:</label>
-            <input type="password" id="pass" placeholder="یک گذرواژه قوی وارد کنید" required>
+    <div class="setup-container">
+        <h2>شروع پیام‌رسان P2P</h2>
+        <label for="name">نام شما:</label>
+        <input type="text" id="name" placeholder="مثلاً: علی">
 
-            <button id="startBtn">شروع و وصل خودکار</button>
-        </div>
-        
-        <div class="chat-box" style="display: none;">
-            <div class="messages-container" id="messages"></div>
-            <div class="input-container">
-                <input type="text" id="textMsg" placeholder="پیام..." onkeydown="if(event.key==='Enter'){sendMsg()}">
-                <button id="sendBtn">ارسال</button>
-            </div>
-        </div>
+        <label for="pass">گذرواژه مشترک:</label>
+        <input type="password" id="pass" placeholder="یک گذرواژه قوی وارد کنید">
+
+        <label for="friendId">Peer ID دوست (روش مستقیم):</label>
+        <input type="text" id="friendId" placeholder="مثلاً: abc123">
+
+        <button id="startBtn">شروع و وصل خودکار</button>
+        <button id="copyLinkBtn">کپی لینک اتصال</button>
+
+        <p>Peer ID شما: <span id="myId">---</span></p>
+        <p>وضعیت اتصال: <span id="status">قطع</span></p>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.4.7/dist/peerjs.min.js"></script>
-    <script src="chat.js"></script>
+    <div class="chat-box" style="display: none;">
+        <div class="messages-container" id="messages"></div>
+        <div class="input-container">
+            <input type="text" id="textMsg" placeholder="پیام..." onkeydown="if(event.key==='Enter'){sendMsg()}">
+            <button id="sendBtn">ارسال</button>
+        </div>
+        <div class="debug-panel" id="debugPanel"></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.4.7/dist/peerjs.min.js"></script>
+<script src="chat.js"></script>
 </body>
-      </html>
+</html>
